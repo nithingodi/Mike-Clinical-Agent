@@ -1,0 +1,33 @@
+# Local secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+
+# Private / large / generated data
+data/
+storage/
+baseline_logs/
+benchmark_outputs/
+patches/
+vendor_patches/
+notebooks/
+*.ipynb
+
+# Medical / image artifacts
+*.dcm
+*.nii
+*.nii.gz
+*.png
+*.log
+
+# Python / system
+venv/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
