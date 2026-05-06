@@ -198,9 +198,6 @@ src/
 
   indexer.py                   # Dataset indexing utilities
 
-  memory_continuity/
-    reference_memory_layer.py  # Public reference scaffold for memory continuity
-
 notebooks/
   01_clinical_eda.ipynb
   patient_token_budget_results.json
@@ -293,11 +290,11 @@ All image interpretations should be treated as assistive and non-authoritative u
 
 ---
 
-## Public / Private Boundary
+## Implementation Boundary
 
-This public repository contains the Gemma 4 clinical copilot demo and a reference memory-continuity scaffold.
+This public repository focuses on the Gemma 4 clinical copilot demo: the Streamlit app, clinical tools, DICOM workflow, multimodal image review path, and visible evidence trace.
 
-Some research internals are intentionally not fully open-sourced in this competition repository, including advanced memory-governance prompts, runtime-memory controller internals, and experimental KV-direct work. The public code demonstrates the Gemma 4 app, tool use, evidence handling, and user-facing clinical workflow.
+The writeup discusses memory continuity at a high level because it is part of the demonstrated behavior, but this repository does not need to expose the internal research runtime used for advanced memory governance experiments.
 
 ---
 
