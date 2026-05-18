@@ -626,16 +626,16 @@ Add links here after final upload:
 
 ```text
 Kaggle writeup:
-<your Kaggle writeup link>
+<https://kaggle.com/competitions/gemma-4-good-hackathon/writeups/chronosieve-memory-os-local-gemma-4-clinical-copi>
 
 Short demo video:
-<your 3-minute YouTube link>
+<https://youtu.be/QxgZRKBtEQg>
 
-Optional full technical demo:
-<your long unlisted YouTube link>
+Live full demo:
+<https://youtu.be/rssFc_CLC-8>
 
 Pitch deck PDF:
-<your Google Drive or Kaggle file link>
+<https://drive.google.com/file/d/1yKHCjVWoqfojLpJ-njEpvtbrMIDMmYHk/view?usp=sharing>
 ```
 
 ---
