@@ -1,227 +1,214 @@
-# Mike: Local Gemma 4 Clinical Copilot
+# Mike + ChronoSieve: Local Gemma 4 Clinical Evidence Navigator
 
-**A privacy-first clinical research copilot for longitudinal MRI review, powered by local Gemma 4, tool calling, multimodal reasoning, and memory continuity.**
+**Mike** is a local Gemma 4 clinical evidence navigator for longitudinal MRI review.
+**ChronoSieve** is the memory-governance layer that helps long-running AI workflows preserve evidence, archive raw traces, track corrections, maintain caveats, and avoid turning weak/proxy claims into authoritative truth.
 
-> Research/demo only. This project is not a diagnostic medical device, treatment recommendation system, or replacement for a radiologist, oncologist, neurosurgeon, or clinical team.
+> Research/demo only. This project is not a diagnostic medical device, treatment recommendation system, or replacement for a radiologist, oncologist, neurosurgeon, clinician, or clinical team.
 
 ---
 
-## Overview
+## One-Sentence Summary
 
-Doctors and clinical researchers do not review complex patients in one clean prompt. They move across scan dates, DICOM folders, MRI modalities, image slices, notes, tool outputs, prior findings, hypotheses, and corrections.
+Mike helps clinicians navigate large, private, multimodal patient evidence locally with Gemma 4, while ChronoSieve manages what the agent should remember, archive, rehydrate, correct, or block across long workflows.
 
-This project, **Mike**, is a local Gemma 4 clinical copilot designed to help users ask natural-language questions across longitudinal patient MRI data. The current demo focuses on UPENN-GBM neuro-oncology MRI workflows.
+---
 
-Mike can:
+## Why This Matters
 
-* query a patient’s scan timeline,
-* identify available sessions and modalities,
+Clinical review is not one prompt. A clinician may need to move across:
+
+* scan dates,
+* DICOM folders,
+* MRI modalities,
+* physical slice coordinates,
+* rendered images,
+* prior findings,
+* tool outputs,
+* caveats,
+* corrections,
+* and audit evidence.
+
+For one UPENN-GBM patient case used in this demo:
+
+| Item                                    |  Scale |
+| --------------------------------------- | -----: |
+| DICOM files                             |  3,002 |
+| Scan sessions                           |      2 |
+| MRI series                              |     12 |
+| Naive all-pixel + metadata token burden | ~1.77M |
+| Active turn context target              |   <32K |
+
+This cannot be solved by simply pasting the patient record into a chat window. The system needs selective evidence retrieval, local inference, visible tool traces, and governed memory.
+
+---
+
+## What Is Mike?
+
+Mike is the clinical task agent.
+
+It uses local Gemma 4 to:
+
+* understand clinical-style questions,
+* decide when to call tools,
+* query patient timelines,
+* inspect available MRI modalities,
 * retrieve anatomically aligned DICOM slices by physical Z-coordinate,
-* render DICOM slices into viewable PNG previews,
-* use Gemma 4 multimodal reasoning for image review,
-* expose tool traces and evidence paths for auditability,
-* preserve useful memory and caveats across follow-up questions.
+* convert selected DICOM slices into PNG previews,
+* perform research-assistive multimodal review,
+* and expose intermediate tool traces for auditability.
 
-The goal is not to automate diagnosis. The goal is to reduce the time clinicians and researchers spend navigating evidence.
-
----
-
-## Why Gemma 4
-
-This project uses Gemma 4 as the local intelligence layer for:
-
-* **Reasoning:** decomposing clinical-style questions into tool calls.
-* **Function calling:** choosing timeline, DICOM retrieval, image processing, and analysis tools.
-* **Structured JSON handling:** reading and routing tool outputs.
-* **Multimodal understanding:** reviewing rendered MRI slice images.
-* **Local/private deployment:** running through llama.cpp so sensitive data does not need to leave the local environment.
-
-The working setup uses a Gemma 4 31B GGUF model served through a llama.cpp OpenAI-compatible endpoint.
-
----
-
-## Architecture
+Example question:
 
 ```text
-Doctor / researcher question
+I need to compare the tumor margins for UPENN-GBM-00045.
+Fetch the T1 Post-Contrast slice at exactly Z = -15.0mm for both
+the November 2005 and March 2006 sessions.
+```
+
+Mike retrieves the relevant scan dates, resolves modality names, selects the closest slices, returns file paths and Z-coordinates, renders images, and provides a trace.
+
+---
+
+## What Is ChronoSieve?
+
+ChronoSieve is a generic memory-governance layer for long-running AI workflows.
+
+It is not just chat history.
+It is not a vector database.
+It is not a bigger context window.
+
+ChronoSieve asks:
+
+* What should survive this turn?
+* What should be archived but not carried?
+* What is a model interpretation rather than deterministic evidence?
+* What is a caveat?
+* What was corrected or invalidated?
+* What should be rehydrated later?
+* What must not become authoritative truth?
+
+In this clinical demo, ChronoSieve helps preserve:
+
+* scan dates,
+* DICOM paths,
+* target and actual Z-coordinates,
+* modality alias learnings,
+* caveats,
+* non-authoritative image interpretations,
+* correction records,
+* and audit references.
+
+---
+
+## High-Level Architecture
+
+```text
+User question
   ↓
-Gemma 4 task agent
+Mike / Gemma 4 task agent
   ↓
 Clinical tools
   ↓
 Timeline / DICOM / image evidence
   ↓
-Grounded answer + visible execution trace
+Answer + tool trace
+  ↓
+ChronoSieve
+  ↓
+Evidence archive + memory candidates
+  ↓
+Gemma Sieve Worker
+  ↓
+Python Policy Governor
+  ↓
+Ledger + carry packet + correction registry
+  ↓
+Next grounded turn
 ```
 
-The broader research layer behind the demo is **ChronoSieve**, a memory-continuity architecture for long evidence workflows.
-
-```text
-Tool trace / evidence / answer
-  ↓
-Evidence archive
-  ↓
-Memory candidate extraction
-  ↓
-Memory governance
-  ↓
-Bounded carry/runtime context
-  ↓
-Future grounded answer
-```
-
-ChronoSieve treats the context window as a workspace, not a database. Instead of stuffing every previous message and tool output into the next prompt, it decides what should remain active, what should be archived, what should be treated as non-authoritative, and what should be rehydrated only when needed.
+The task agent performs the work. ChronoSieve decides what future attention should do with the result.
 
 ---
 
-## Demo Capabilities
-
-### 1. Patient timeline retrieval
-
-Mike can answer questions such as:
+## Repository Structure
 
 ```text
-What scan sessions are available for UPENN-GBM-00045?
-```
-
-It returns scan dates, modality availability, and longitudinal context.
-
-### 2. DICOM slice retrieval
-
-Mike can retrieve MRI slices by physical Z-coordinate:
-
-```text
-Fetch the T1 Post-Contrast slice closest to Z = -15mm for the baseline and follow-up sessions.
-```
-
-It identifies the closest available DICOM files and returns their paths, dates, modalities, and Z-coordinates.
-
-### 3. DICOM-to-image rendering
-
-Selected DICOM files can be converted into PNG previews for visual inspection.
-
-### 4. Multimodal image review
-
-Gemma 4 can inspect rendered MRI slices and provide research-assistive observations with safety caveats.
-
-### 5. Evidence trace visibility
-
-The app exposes intermediate tool calls, inputs, observations, and evidence paths so users can audit how an answer was produced.
-
-### 6. Memory continuity
-
-The system can preserve important findings and caveats across follow-up questions without carrying the entire transcript.
-
----
-
-## Memory Continuity Stress Test
-
-To validate long-horizon behavior, I replayed 40 turns of a longitudinal conversation one turn at a time through the memory-governance loop.
-
-| Metric                   |      Result |
-| ------------------------ | ----------: |
-| Dialogue turns processed |          40 |
-| Evidence archive rows    |          40 |
-| Governed memory events   |          87 |
-| Ledger rows              |          40 |
-| Active carry packet      | ~513 tokens |
-
-Then I asked exact recall and temporal reasoning questions through the full runtime path:
-
-```text
-MemoryAccessController
-  ↓
-KV/runtime memory plan
-  ↓
-Governed runtime context
-  ↓
-AnswerSynthesizer
-```
-
-Example results:
-
-* “When did Caroline go to the support group?” → **7 May 2023**, resolved from “yesterday” anchored to 8 May 2023.
-* “What did Caroline research?” → **adoption agencies**.
-* “When is Melanie planning on going camping?” → **June 2023**.
-* “When did Melanie run a charity race?” → The system rehydrated archived evidence and answered **May 20, 2023**, because the raw dialogue said “last Saturday” from a 25 May 2023 session.
-
-This matters for clinical workflows because doctors ask questions across time. The system must preserve evidence trails, caveats, and source grounding rather than producing plausible one-turn answers.
-
----
-
-## DICOM Evidence Crawl Proof
-
-A 20-file DICOM autonomous evidence crawl was run on patient `UPENN-GBM-00045`.
-
-| Metric                   |                                               Result |
-| ------------------------ | ---------------------------------------------------: |
-| Selected DICOM resources |                                                   20 |
-| Completed                |                                                   20 |
-| Failed                   |                                                    0 |
-| Skipped                  |                                                    0 |
-| Memory events            |                                                   40 |
-| Archive rows             |                                                   20 |
-| Unique archive refs      |                                                   20 |
-| Carry packet size        |                                           804 tokens |
-| KV-direct required       |                                                   No |
-| Dates covered            |                                   20051130, 20060323 |
-| Series covered           | T2, DTI, perfusion, T1 axial, T1 stealth-post, FLAIR |
-
-This validates the core loop:
-
-```text
-DICOM resource
-  → metadata observation
-  → memory candidates
-  → memory governance
-  → archive + ledger
-  → bounded carry packet
-```
-
----
-
-## Repository Layout
-
-```text
-app.py                         # Streamlit app
-patient_index.csv              # Patient index / demo metadata
-requirements.txt               # Python dependencies
-
-src/
-  agent/
-    state_loop.py              # Gemma 4 clinical task agent
-
-  tools/
-    data_parser.py             # Dataset / DICOM parsing helpers
-    eloquent_tools.py          # Clinical tools used by the agent
-    sequence_mapper.py         # Modality / sequence matching helpers
-
-  indexer.py                   # Dataset indexing utilities
-
-notebooks/
-  01_clinical_eda.ipynb
-  patient_token_budget_results.json
-
-docs/
-  architecture.md
-  safety_boundary.md
-  kaggle_writeup.md
-  demo_script.md
-
-assets/
-  architecture_diagram.png
-  screenshots/
+.
+├── app.py
+├── patient_index.csv
+├── requirements.txt
+├── README.md
+│
+├── docs/
+│   ├── demo_script.md
+│   ├── safety_boundary.md
+│   ├── chronosieve_architecture.md
+│   └── memory_governance.md
+│
+├── scripts/
+│   ├── run_chronosieve_mike_turn.py
+│   ├── smoke_full_chronosieve_answer.py
+│   ├── test_mock_kv_direct_runtime.py
+│   ├── inspect_runtime_context.py
+│   └── inspect_kv_direct_contract.py
+│
+└── src/
+    ├── agent/
+    │   └── state_loop.py
+    │
+    ├── tools/
+    │   ├── data_parser.py
+    │   ├── eloquent_tools.py
+    │   └── sequence_mapper.py
+    │
+    ├── indexer.py
+    │
+    └── chronosieve/
+        ├── core/
+        │   ├── schemas.py
+        │   ├── storage.py
+        │   ├── carry_packet.py
+        │   ├── sieve_worker.py
+        │   ├── policy_governor.py
+        │   ├── session.py
+        │   ├── memory_access.py
+        │   ├── rehydration.py
+        │   ├── runtime_context.py
+        │   ├── runtime_backend.py
+        │   ├── kv_sync.py
+        │   ├── autonomous_executor.py
+        │   ├── autonomous_state.py
+        │   ├── resource_adapter.py
+        │   ├── role_briefing.py
+        │   └── utils.py
+        │
+        ├── adapters/
+        │   ├── mike/
+        │   │   ├── trace_parser.py
+        │   │   └── session_factory.py
+        │   ├── dicom/
+        │   │   └── dicom_resource_adapter.py
+        │   └── generic/
+        │       └── synthetic_resource_adapter.py
+        │
+        └── backends/
+            ├── kv_direct_contract.py
+            ├── mock_kv_direct_runtime.py
+            ├── llamacpp_backend.py
+            ├── llamacpp_prompt_cache_backend.py
+            └── llamacpp_prompt_cache_live.py
 ```
 
 ---
 
 ## Requirements
 
-Recommended environment:
+Recommended:
 
 * Python 3.10+
 * Streamlit
-* LangChain / langchain-openai / langchain-core
+* LangChain
+* langchain-openai
 * pandas
 * pydicom
 * numpy
@@ -238,11 +225,69 @@ pip install -r requirements.txt
 
 ---
 
-## llama.cpp Server
+## Environment Variables
 
-The local app expects a llama.cpp OpenAI-compatible endpoint.
+Create a local `.env` file. Do not commit it.
 
-Example sanity check:
+```bash
+cp .env.example .env
+```
+
+Example:
+
+```bash
+LLM_BASE_URL=http://localhost:8080/v1
+LLM_API_KEY=local-dummy-key
+LLM_MODEL=gemma-4-31B-it-Q4_K_M.gguf
+```
+
+The local key is only for the OpenAI-compatible llama.cpp endpoint. It is not an OpenAI key.
+
+---
+
+## Data Setup
+
+This repository does not include raw DICOM files or model weights.
+
+The demo uses the public, de-identified UPENN-GBM dataset from The Cancer Imaging Archive.
+
+`patient_index.csv` is a lightweight local index used by the tools. If your DICOM files live in a different folder, regenerate or edit the file paths before running the app.
+
+Expected columns include:
+
+```text
+PatientID
+StudyDate
+Modality
+Z_Coordinate
+FilePath
+```
+
+Do not commit raw DICOMs, generated patient images, private logs, `.env` files, or model weights.
+
+---
+
+## Run the Streamlit App
+
+Start your local llama.cpp server first, then run:
+
+```bash
+streamlit run app.py
+```
+
+The app exposes:
+
+* doctor-facing chat,
+* tool-grounded answers,
+* extracted MRI images,
+* execution trace,
+* tool inputs,
+* tool observations,
+* token estimates.
+
+---
+
+## Run a Basic LLM Sanity Check
 
 ```bash
 python - <<'PY'
@@ -259,11 +304,280 @@ server ok
 
 ---
 
-## Run the App
+## Run ChronoSieve With Mike
+
+This wraps the existing Mike task agent with ChronoSieve memory governance:
 
 ```bash
-streamlit run app.py
+python scripts/run_chronosieve_mike_turn.py
 ```
+
+Expected output includes:
+
+```text
+CHRONOSIEVE-WRAPPED ANSWER
+task_id
+archive_id
+candidate_count
+memory_event_count
+carry_packet_token_estimate
+storage_dir
+cautions
+```
+
+This demonstrates the core loop:
+
+```text
+Mike answer + trace
+  → evidence archive
+  → memory candidates
+  → Sieve Worker decision
+  → Policy Governor validation
+  → ledger + carry packet
+```
+
+---
+
+## Run ChronoSieve Runtime / KV Contract Checks
+
+ChronoSieve includes planned runtime and KV-direct contract layers. These do not mutate llama.cpp KV cache directly yet; they define and simulate how memory segments should be staged in future runtimes.
+
+Inspect runtime context:
+
+```bash
+python scripts/inspect_runtime_context.py
+```
+
+Inspect KV-direct contract:
+
+```bash
+python scripts/inspect_kv_direct_contract.py
+```
+
+Test mock KV runtime:
+
+```bash
+python scripts/test_mock_kv_direct_runtime.py
+```
+
+---
+
+## How ChronoSieve Works
+
+ChronoSieve separates memory into multiple layers:
+
+| Layer                   | Purpose                                        |
+| ----------------------- | ---------------------------------------------- |
+| Evidence archive        | Stores raw task evidence and traces externally |
+| Task ledger             | Compact task-level state                       |
+| Memory events           | Committed memory decisions                     |
+| Carry packet            | Bounded working memory for the next turn       |
+| Alias memory            | Procedural/canonical-name learnings            |
+| Correction registry     | Reference-frame changes and invalidations      |
+| Non-authoritative items | Useful claims that must not become truth       |
+
+The important principle:
+
+```text
+Raw context is not memory.
+A context window is a workspace.
+ChronoSieve governs what deserves future attention.
+```
+
+---
+
+## Memory Status Types
+
+ChronoSieve can classify memory as:
+
+| Status              | Meaning                               |
+| ------------------- | ------------------------------------- |
+| `active`            | Useful for near-future continuity     |
+| `archived`          | Stored for audit, not carried forward |
+| `fossil`            | Durable protected memory              |
+| `non_authoritative` | Useful but not trusted as truth       |
+| `invalidated`       | Must not be reused as truth           |
+| `decay`             | Low-value or redundant residue        |
+
+---
+
+## The Sieve Worker + Policy Governor Split
+
+ChronoSieve uses two layers:
+
+### 1. Gemma Sieve Worker
+
+The Sieve Worker reviews compact candidate briefings and recommends what should happen to each memory candidate.
+
+It does not solve the user task again. It only decides memory consequences.
+
+### 2. Python Policy Governor
+
+The Policy Governor enforces hard safety invariants.
+
+Examples:
+
+* Brain-generated claims are not automatically authoritative.
+* Proxy results must not become truth for the original task.
+* Large raw payloads stay archived.
+* High-risk caveats survive.
+* Validated alias learnings can be promoted.
+
+This split lets the model provide judgment while Python enforces rules.
+
+---
+
+## Adapters
+
+ChronoSieve is designed to be domain-neutral. Adapters convert a task agent’s outputs into generic memory candidates.
+
+### Mike Adapter
+
+Located at:
+
+```text
+src/chronosieve/adapters/mike/
+```
+
+The Mike adapter parses LangChain-style tool traces and extracts:
+
+* DICOM file paths,
+* PNG artifact paths,
+* patient IDs,
+* study dates,
+* selected Z-coordinates,
+* modality alias learnings,
+* caveats,
+* tool errors,
+* proxy-risk patterns,
+* task-agent claims.
+
+### DICOM Adapter
+
+Located at:
+
+```text
+src/chronosieve/adapters/dicom/
+```
+
+Used for resource-level DICOM evidence processing and sequential file workflows.
+
+### Generic Adapter
+
+Located at:
+
+```text
+src/chronosieve/adapters/generic/
+```
+
+Used for non-clinical or synthetic resource workflows.
+
+---
+
+## Use ChronoSieve With Your Own Agent
+
+ChronoSieve can wrap any agent that returns a dictionary with an answer and trace.
+
+Minimal shape:
+
+```python
+def my_task_agent(user_request: str, history: list[dict[str, str]]) -> dict:
+    return {
+        "answer": "Final answer from your agent.",
+        "trace": [
+            {
+                "tool": "example_tool",
+                "tool_input": {"query": "example"},
+                "observation": "Tool output here."
+            }
+        ],
+        "image_paths": [],
+        "latency_seconds": 1.23,
+        "estimated_response_tokens": 100,
+        "success": True,
+        "error": None,
+    }
+```
+
+Then create a ChronoSieve session:
+
+```python
+from src.chronosieve.core.storage import ChronoSieveStorage
+from src.chronosieve.core.sieve_worker import GemmaSieveWorker
+from src.chronosieve.core.session import ChronoSieveSession
+from src.chronosieve.adapters.mike.trace_parser import MikeTraceParser
+from src.agent.state_loop import llm
+
+storage = ChronoSieveStorage(
+    session_id="my_session",
+    root_dir="storage/chronosieve_sessions",
+    adapter_name="my_adapter",
+    backend_model="local-gemma"
+)
+
+session = ChronoSieveSession(
+    session_id="my_session",
+    task_agent_callable=my_task_agent,
+    sieve_worker=GemmaSieveWorker(llm=llm),
+    storage=storage,
+    trace_parser=MikeTraceParser(),  # replace with your own adapter/parser for non-Mike agents
+)
+
+result = session.handle_turn("Analyze this task.")
+print(result["answer"])
+print(result["carry_packet_token_estimate"])
+print(result["storage_dir"])
+```
+
+For a non-clinical agent, implement a parser that converts your tool traces into `MemoryCandidate` objects.
+
+---
+
+## What Was Demonstrated
+
+### Clinical workflow demo
+
+The Streamlit demo shows:
+
+* patient timeline reconstruction,
+* baseline/follow-up scan date detection,
+* DTI availability checks,
+* modality recovery,
+* T1 post-contrast slice retrieval near target Z,
+* DICOM-to-PNG rendering,
+* multimodal MRI review,
+* exact file-path recall,
+* correction handling,
+* metadata vs image-observation separation,
+* safety caveats.
+
+### Memory continuity proof
+
+A 40-turn memory test produced:
+
+| Metric                   |      Result |
+| ------------------------ | ----------: |
+| Dialogue turns processed |          40 |
+| Evidence archive rows    |          40 |
+| Governed memory events   |          87 |
+| Ledger rows              |          40 |
+| Active carry packet      | ~513 tokens |
+
+### DICOM evidence crawl proof
+
+A 20-file DICOM autonomous crawl produced:
+
+| Metric                   |     Result |
+| ------------------------ | ---------: |
+| Selected DICOM resources |         20 |
+| Completed                |         20 |
+| Failed                   |          0 |
+| Skipped                  |          0 |
+| Memory events            |         40 |
+| Archive rows             |         20 |
+| Unique archive refs      |         20 |
+| Carry packet size        | 804 tokens |
+| KV-direct required       |         No |
 
 ---
 
@@ -273,35 +587,73 @@ This project is for research and demonstration only.
 
 Safe claims:
 
-* Demonstrates local/tool-grounded clinical-data workflows.
-* Helps navigate timelines, scan metadata, image slices, and evidence paths.
-* Preserves auditability and caveats across long workflows.
+* Demonstrates local, tool-grounded clinical evidence navigation.
+* Helps navigate timelines, metadata, image slices, and evidence paths.
+* Preserves auditability, caveats, and corrections across long workflows.
 * Uses Gemma 4 locally through llama.cpp.
+* Shows memory governance for long-running AI tasks.
 
 Do not use this project for:
 
-* clinical diagnosis,
+* diagnosis,
 * treatment recommendations,
 * emergency decisions,
-* replacing qualified medical professionals,
-* unsupervised patient care.
+* replacing medical professionals,
+* unsupervised patient care,
+* production clinical deployment without validation, security review, and regulatory assessment.
 
-All image interpretations should be treated as assistive and non-authoritative unless validated by appropriate clinicians.
+All image interpretations are assistive and non-authoritative unless validated by qualified clinicians.
 
 ---
 
-## Implementation Boundary
+## Dataset Attribution
 
-This public repository focuses on the Gemma 4 clinical copilot demo: the Streamlit app, clinical tools, DICOM workflow, multimodal image review path, and visible evidence trace.
+MRI data used in the demo comes from the public, de-identified UPENN-GBM collection hosted by The Cancer Imaging Archive.
 
-The writeup discusses memory continuity at a high level because it is part of the demonstrated behavior, but this repository does not need to expose the internal research runtime used for advanced memory governance experiments.
+Recommended citation:
+
+```text
+Bakas, S. et al. The UPenn-GBM data collection: Multi-parametric magnetic resonance imaging (mpMRI) scans for de novo Glioblastoma (GBM) patients from the Hospital of the University of Pennsylvania. The Cancer Imaging Archive. https://doi.org/10.7937/TCIA.709X-DN49
+```
+
+Use of this repository should follow the dataset license and attribution requirements.
+
+---
+
+## Kaggle Submission Links
+
+Add links here after final upload:
+
+```text
+Kaggle writeup:
+<your Kaggle writeup link>
+
+Short demo video:
+<your 3-minute YouTube link>
+
+Optional full technical demo:
+<your long unlisted YouTube link>
+
+Pitch deck PDF:
+<your Google Drive or Kaggle file link>
+```
 
 ---
 
 ## Project Thesis
 
-Bigger context windows alone do not solve long clinical workflows.
+Bigger context windows alone do not solve long evidence workflows.
 
-Doctors need systems that can inspect evidence, preserve what matters, archive full traces, remember caveats, and rehydrate exact proof when challenged.
+A long-horizon AI agent needs to know:
 
-**Mike** demonstrates how local Gemma 4 can help clinicians and researchers navigate patient histories and MRI evidence faster, more privately, and with better auditability.
+* what to remember,
+* what to archive,
+* what to rehydrate,
+* what was corrected,
+* what is only a model interpretation,
+* and what must not become truth.
+
+Mike is the clinical wedge.
+ChronoSieve is the memory-governance layer.
+
+Together, they demonstrate a path toward local, private, auditable AI agents that can work across many files and many turns without losing the evidence trail.
