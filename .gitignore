@@ -31,3 +31,35 @@ venv/
 __pycache__/
 *.pyc
 .DS_Store
+
+# OS / local
+.DS_Store
+assets/.DS_Store
+
+# Runtime outputs
+storage/
+baseline_logs/
+benchmark_outputs/
+debug_upload_*/
+outputs/
+data/
+*.zip
+
+# Python
+__pycache__/
+*.pyc
+
+# Model/data artifacts
+*.gguf
+*.safetensors
+*.pt
+*.bin
+*.pkl
+*.joblib
+*.dcm
+*.nii
+*.nii.gz
+
+# Logs / server artifacts
+server_logs*
+*.log
