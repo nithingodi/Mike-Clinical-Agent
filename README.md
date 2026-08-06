@@ -622,20 +622,19 @@ Use of this repository should follow the dataset license and attribution require
 
 ## Kaggle Submission Links
 
-Add links here after final upload:
 
 ```text
 Kaggle writeup:
-<https://kaggle.com/competitions/gemma-4-good-hackathon/writeups/chronosieve-memory-os-local-gemma-4-clinical-copi>
+https://kaggle.com/competitions/gemma-4-good-hackathon/writeups/chronosieve-memory-os-local-gemma-4-clinical-copi
 
 Short demo video:
-<https://youtu.be/QxgZRKBtEQg>
+https://youtu.be/QxgZRKBtEQg
 
 Live full demo:
-<https://youtu.be/rssFc_CLC-8>
+https://youtu.be/rssFc_CLC-8
 
 Pitch deck PDF:
-<https://drive.google.com/file/d/1yKHCjVWoqfojLpJ-njEpvtbrMIDMmYHk/view?usp=sharing>
+https://drive.google.com/file/d/1yKHCjVWoqfojLpJ-njEpvtbrMIDMmYHk/view?usp=sharing
 ```
 
 ---
